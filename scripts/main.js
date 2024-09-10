@@ -1,45 +1,68 @@
 class Router {
-  constructor(nameweb, config){
+  constructor(nameweb, config) {
     this.nameweb = nameweb;
     this.error_404 = config.error_404;
     this.routes = [];
     this.sesions = config.sesions_name ? config.sesions_name : "website-sesions";
     this.app = config.app;
   }
-  get(route, func){
-    let setArray = Array.isArray(route);
-    if(setArray == true){
-      route.forEach((element, i) => {
-        this.routes.push({route: element, func: func});
-      })
-    }else {
-      this.routes.push({route: route, func: func});
-    }
-  }
-  start(){
-    if(!this.app) return console.log(new Error('App is not defined'));
-    var newHash = window.location.hash; 
-    let titleChanged = document.querySelector('title').innerHTML = `${this.nameweb ? this.nameweb : "WebSite"} | ${newHash != '' ? newHash.slice(2).toUpperCase() : "Home"}`;
-    let suroute = newHash.slice(1) ? newHash.slice(1) : "";
 
-    let sesions = document.querySelector(`${this.app}`);
-    
-    let finding = this.routes.find(ch => ch.route == suroute);
-    if(!finding){
-      sesions.innerHTML = `
-        ${this.error_404?this.error_404:"<div>Pagina No Encontrada</div>"}
-      `;
-    }else {
-      sesions.innerHTML = `${finding.func({route: suroute, finder: finding})}`;
+  get(route, func) {
+    let setArray = Array.isArray(route);
+    if (setArray) {
+      route.forEach((element) => {
+        this.routes.push(this.parseRoute(element, func));
+      });
+    } else {
+      this.routes.push(this.parseRoute(route, func));
     }
   }
-  listen(){
+
+  parseRoute(route, func) {
+    const paramRegex = /:([^/]+)/g; // Buscar los parámetros con :id, :name, etc.
+    const routeRegex = route.replace(paramRegex, "([^/]+)"); // Convertir ruta en regex
+    const regex = new RegExp(`^${routeRegex}$`);
+    return { route, regex, func };
+  }
+
+  matchRoute(route) {
+    for (let r of this.routes) {
+      const match = route.match(r.regex);
+      if (match) {
+        const params = {};
+        const paramNames = (r.route.match(/:([^/]+)/g) || []).map(p => p.slice(1));
+        paramNames.forEach((paramName, index) => {
+          params[paramName] = match[index + 1]; // Extraer valores según el orden
+        });
+        return { ...r, params };
+      }
+    }
+    return null;
+  }
+
+  start() {
+    if (!this.app) return console.log(new Error('App is not defined'));
+    const newHash = window.location.hash.slice(1) ? window.location.hash.slice(1) : "";
+    let titleChanged = document.querySelector('title').innerHTML = `${this.nameweb ? this.nameweb : "WebSite"} | ${newHash != '' ? newHash.slice(2).toUpperCase() : "Home"}`;
+    
+    let sesions = document.querySelector(`${this.app}`);
+
+    const routeMatch = this.matchRoute(newHash);
+    if (!routeMatch) {
+      sesions.innerHTML = `${this.error_404 ? this.error_404 : "<div>Página No Encontrada</div>"}`;
+    } else {
+      sesions.innerHTML = routeMatch.func({ route: newHash, params: routeMatch.params });
+    }
+  }
+
+  listen() {
     window.addEventListener("hashchange", () => {
-      this.start()
+      this.start();
     });
   }
-  go(route){
-    location.location.hash = `/${route}`;
+
+  go(route) {
+    window.location.hash = `/${route}`;
   }
 }
 
@@ -94,7 +117,8 @@ class database {
       days: 0,
       anothers: 0,
       facts: 0,
-      notifications: 0
+      notifications: 0,
+      notes: 0
     };
 
     if(!idsHorary){
@@ -176,6 +200,54 @@ class database {
 
   getAllUsers(){
     return localStorage.getItem('horaryManager/users')?JSON.parse(localStorage.getItem('horaryManager/users')):{};
+  }
+
+  startNotes(){
+    let notesData = localStorage.getItem('horaryManager/notes');
+    let simpleNotes = JSON.parse(notesData?notesData:"{}");
+
+    return simpleNotes;
+  }
+
+  setNote(dataNote){
+    let finalNotes = this.startNotes();
+    let ids = this.ids();
+
+    ids.notes = (ids.notes?ids.notes:0) + 1;
+    finalNotes[ids.notes] = {
+      message: dataNote.message,
+      title: dataNote.title,
+      date: new Date().toString(),
+      edited: new Date().toString(),
+      id: ids.notes
+    }
+
+    this.setData('horaryManager/notes', finalNotes);
+    this.setData('horaryManager/ids', ids);
+
+    return finalNotes;
+  }
+
+  editNote(dataNote){
+    let finalNotes = this.startNotes();
+    let ids = this.ids();
+
+    finalNotes[dataNote.id].title = dataNote.title;
+    finalNotes[dataNote.id].message = dataNote.message;
+
+    this.setData('horaryManager/notes', finalNotes);
+
+    return finalNotes;
+  }
+
+  deleteNote(id){
+    let finalNotes = this.startNotes()
+
+    delete finalNotes[id];
+
+    this.setData('horaryManager/notes', finalNotes);
+
+    return finalNotes;
   }
 }
 
@@ -296,8 +368,6 @@ router.get(['/', '', ' '], () => {
 
   let notificaciones = converterArray(simpleUser.notifications);
   let ultimas3 = [notificaciones[notificaciones.length-1], notificaciones[notificaciones.length-2], notificaciones[notificaciones.length-3]];
-
-  console.log(ultimas3)
 
   return `<div class="container">
     <br><br>
@@ -633,6 +703,114 @@ router.get('/notificaciones', () => {
   `;
 });
 
+function submitAddNote(event){
+  event.preventDefault();
+
+  let data = {
+    title: event.target[0].value,
+    message: event.target[1].value
+  }
+
+  admin.setNote(data);
+
+  Toast.fire({
+    text: "Nota guardada satisfactoriamente",
+    icon: "success"
+  })
+
+  location.hash = "#/notes";
+}
+
+router.get('/notes/add', () => {
+  return `
+    <form action="" onsubmit="submitAddNote(event)">
+      <input type="text" placeholder="Titulo de la nota" class="form-control note-title">
+      <textarea name="" placeholder="Texto de la nota" class="form-control note-description" id=""></textarea>
+      <button class="btn btn-app w-100">Añadir Nota</button>
+    </form>
+  `;
+});
+
+function recortarMensaje(mensaje) {
+    const limite = 50;
+    if (mensaje.length > limite) {
+        return mensaje.substring(0, limite) + '...';
+    }
+    return mensaje;
+}
+
+function submitEditNote(event){
+  event.preventDefault();
+
+  let data = {
+    title: event.target[0].value,
+    message: event.target[1].value,
+    id: event.target[2].value
+  }
+
+  admin.editNote(data);
+
+  location.hash = "#/notes";
+}
+
+function submitDeleteNote(id){
+  admin.deleteNote(id);
+
+  location.hash = "#/notes";
+}
+
+router.get('/notes/edit/:id', (data) => {
+  let notes = admin.startNotes();
+
+  let findingNote = notes[data.params.id];
+
+  if(!findingNote) return `
+    <div class="text-center container-fluid">
+      <br>
+      <h1>Esta Nota No Existe, Regresa Al Menu Principal</h1>
+    </div>
+  `;
+
+  return `
+    <form action="" onsubmit="submitEditNote(event)">
+      <input type="text" class="form-control note-title" value="${findingNote.title}">
+      <textarea name="" class="form-control note-description" id="">${findingNote.message}</textarea>
+      <input type="hidden" value="${findingNote.id}">
+      <button class="btn btn-app btn-block">Guardar Cambios</button>
+    </form>
+    <button class="btn btn-danger w-100" onclick="submitDeleteNote('${findingNote.id}')">Eliminar Nota</button>
+  `;
+})
+
+router.get('/notes', () => {
+  let notes = admin.startNotes();
+  let finalNotes = converterArray(notes);
+
+  return `
+    <br>
+    <div class="container-fluid">
+      <h1 class="text-center">Notas</h1>
+      <br>
+      <div class="text-center centered-flex">
+        <a href="#/notes/add" class="btn btn-app centered-flex w-100">
+          <?xml version="1.0" encoding="UTF-8"?>
+          <svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512"><path d="M17,12c0,.553-.448,1-1,1h-3v3c0,.553-.448,1-1,1s-1-.447-1-1v-3h-3c-.552,0-1-.447-1-1s.448-1,1-1h3v-3c0-.553,.448-1,1-1s1,.447,1,1v3h3c.552,0,1,.447,1,1Zm7-7v14c0,2.757-2.243,5-5,5H5c-2.757,0-5-2.243-5-5V5C0,2.243,2.243,0,5,0h14c2.757,0,5,2.243,5,5Zm-2,0c0-1.654-1.346-3-3-3H5c-1.654,0-3,1.346-3,3v14c0,1.654,1.346,3,3,3h14c1.654,0,3-1.346,3-3V5Z"/></svg>
+          <div class="setter-flex">Añadir Nota</div>
+        </a>
+      </div>
+      <br>
+      ${!finalNotes[0]?"No hay ninguna nota.":finalNotes.map(ch => `
+        <a href="#/notes/edit/${ch.id}" class="card none-link">
+          <div class="card-body card-notes">
+            <h5 class="card-title">${ch.title?ch.title:"Nota"}</h5>
+            <span>${recortarMensaje(ch.message?ch.message:"No tiene descripción.")}</span>
+          </div>
+        </a>
+      `).join('<br>')}
+    </div>
+  `;
+})
+
 router.get('/configs', () => {
   let pageConfigs = localStorage.getItem('page-configs')?JSON.parse(localStorage.getItem('page-configs')):{
     dark: false,
@@ -643,7 +821,27 @@ router.get('/configs', () => {
   return `
     <br>
     <h5 class="text-center">Configuraciones</h5>
-
+    <br>
+    <form action="" class="container">
+      <div class="top-border">
+        <div class="form-check form-switch form-sm">
+          <input class="form-check-input" type="checkbox" role="switch" id="switch-water">
+          <label class="form-check-label text-center" for="switch-water">Agregar Recordatorio De Agua</label>
+        </div>
+        <br>
+        <div class="form-check form-switch form-sm">
+          <input class="form-check-input" type="checkbox" role="switch" id="switch-notifications">
+          <label class="form-check-label text-center" for="switch-notifications">Notificaciones intrusivas.</label>
+        </div>
+        <br>
+        <div class="form-check form-switch form-sm">
+          <input type="checkbox" role="switch" id="switch-dark-mode" class="form-check-input">
+          <label for="switch-dark-mode" class="form-check-label">Modo Oscuro</label>
+        </div>
+      </div>
+      <br>
+      <button class="btn btn-app w-100">Guardar Configuraciones</button>
+    </form>
   `;  
 })
 
