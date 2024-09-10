@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colorful Select</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Ocultar el select original */
+    .custom-select {
+      display: none;
+    }
+    /* Contenedor del select personalizado */
+    .select-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    /* Botón que imita el select */
+    .select-button {
+      width: 100%;
+      padding: 0.5rem 1rem;
+      border: 1px solid #ced4da;
+      border-radius: 0.25rem;
+      background-color: #fff;
+      text-align: left;
+      cursor: pointer;
+      color: #000;
+    }
+    /* Estilo del dropdown */
+    .select-dropdown {
+      position: absolute;
+      width: 100%;
+      border: 1px solid #ced4da;
+      border-radius: 0.25rem;
+      background-color: #fff;
+      display: none;
+      z-index: 1000;
+    }
+    .select-dropdown div {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    /* Colores para las opciones */
+    .option-leve {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .option-moderado {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .option-grave {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .option-maxima-importancia {
+      background-color: #f5c6cb;
+      color: #721c24;
+    }
+    /* Mostrar el dropdown cuando está activo */
+    .select-wrapper.active .select-dropdown {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <h3>Seleccione la importancia:</h3>
+    <div class="select-wrapper">
+      <button class="select-button" id="selectButton">Seleccione una opción</button>
+      <div class="select-dropdown">
+        <div class="option-leve" data-value="leve">Leve</div>
+        <div class="option-moderado" data-value="moderado">Moderado</div>
+        <div class="option-grave" data-value="grave">Grave</div>
+        <div class="option-maxima-importancia" data-value="maxima-importancia">Máxima Importancia</div>
+      </div>
+    </div>
+    <!-- El select original, para fines de formularios -->
+    <select class="custom-select" id="customSelect" name="importancia">
+      <option value="leve">Leve</option>
+      <option value="moderado">Moderado</option>
+      <option value="grave">Grave</option>
+      <option value="maxima-importancia">Máxima Importancia</option>
+    </select>
+  </div>
+
+  <script>
+    const selectButton = document.getElementById('selectButton');
+    const selectWrapper = document.querySelector('.select-wrapper');
+    const customSelect = document.getElementById('customSelect');
+    const dropdownOptions = document.querySelectorAll('.select-dropdown div');
+
+    // Mostrar/ocultar el dropdown al hacer clic en el botón
+    selectButton.addEventListener('click', () => {
+      selectWrapper.classList.toggle('active');
+    });
+
+    // Seleccionar una opción
+    dropdownOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const value = option.getAttribute('data-value');
+        const text = option.textContent;
+        selectButton.textContent = text; // Mostrar la opción seleccionada en el botón
+        customSelect.value = value; // Actualizar el valor del select original
+        selectWrapper.classList.remove('active'); // Cerrar el dropdown
+      });
+    });
+
+    // Cerrar el dropdown si se hace clic fuera del select
+    document.addEventListener('click', function(event) {
+      if (!selectWrapper.contains(event.target)) {
+        selectWrapper.classList.remove('active');
+      }
+    });
+  </script>
+</body>
+</html>
