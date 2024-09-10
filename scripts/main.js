@@ -811,31 +811,45 @@ router.get('/notes', () => {
   `;
 })
 
+function submitPageConfig(event){
+  event.preventDefault();
+
+  let value = {
+    water: event.target[0].checked,
+    notifications: event.target[1].checked,
+    dark: event.target[2].checked
+  };
+
+  localStorage.setItem('page-configs', JSON.stringify(value));
+}
+
+
 router.get('/configs', () => {
   let pageConfigs = localStorage.getItem('page-configs')?JSON.parse(localStorage.getItem('page-configs')):{
     dark: false,
     notifications: false,
-    renderer: false
+    renderer: false,
+    water: false
   };
 
   return `
     <br>
     <h5 class="text-center">Configuraciones</h5>
     <br>
-    <form action="" class="container">
+    <form action="" class="container" onsubmit="submitPageConfig(event)">
       <div class="top-border">
         <div class="form-check form-switch form-sm">
-          <input class="form-check-input" type="checkbox" role="switch" id="switch-water">
+          <input ${pageConfigs.water==true?"checked":""} class="form-check-input" type="checkbox" role="switch" id="switch-water">
           <label class="form-check-label text-center" for="switch-water">Agregar Recordatorio De Agua</label>
         </div>
         <br>
         <div class="form-check form-switch form-sm">
-          <input class="form-check-input" type="checkbox" role="switch" id="switch-notifications">
+          <input ${pageConfigs.notifications==true?"checked":""} class="form-check-input" type="checkbox" role="switch" id="switch-notifications">
           <label class="form-check-label text-center" for="switch-notifications">Notificaciones intrusivas.</label>
         </div>
         <br>
         <div class="form-check form-switch form-sm">
-          <input type="checkbox" role="switch" id="switch-dark-mode" class="form-check-input">
+          <input ${pageConfigs.dark==true?"checked":""} type="checkbox" role="switch" id="switch-dark-mode" class="form-check-input">
           <label for="switch-dark-mode" class="form-check-label">Modo Oscuro</label>
         </div>
       </div>
